@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { PanelLeftClose, PanelLeftOpen, Plus } from "lucide-react";
 import { navigationItems } from "../Constants/navigation";
+import { Can } from "@/providers/AbilityProvider";
 
 interface SidebarProps {
   collapsed: boolean;
@@ -55,7 +56,7 @@ export default function Sidebar({
             pathname === item.href || pathname.startsWith(item.href + "/");
           const Icon = item.icon;
 
-          return (
+          const link = (
             <Link
               key={item.href}
               href={item.href}
@@ -75,6 +76,20 @@ export default function Sidebar({
               <Icon className="w-5 h-5 shrink-0" />
               {!collapsed && <span className="truncate">{item.label}</span>}
             </Link>
+          );
+
+          if (!item.ability) {
+            return link;
+          }
+
+          return (
+            <Can
+              key={item.href}
+              I={item.ability.action}
+              a={item.ability.subject}
+            >
+              {link}
+            </Can>
           );
         })}
       </nav>

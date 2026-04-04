@@ -1,9 +1,9 @@
 import { API_BASE } from "@/lib/api";
 
-export type UserRole = "candidate" | "recruiter";
+export type UserRole = "candidate" | "recruiter" | "orgadmin";
 
 function isUserRole(value: unknown): value is UserRole {
-  return value === "candidate" || value === "recruiter";
+  return value === "candidate" || value === "recruiter" || value == "orgadmin";
 }
 
 export async function getUserRole(): Promise<UserRole | null> {

@@ -32,14 +32,15 @@ import {
   UserCircle,
   type LucideIcon,
 } from "lucide-react";
+import type { Actions, Subjects } from "@/providers/AbilityProvider";
 
 export interface NavItem {
   label: string;
   href: string;
   icon: LucideIcon;
   ability?: {
-    action: string;
-    subject: string;
+    action: Actions;
+    subject: Subjects;
   };
 }
 export const navigationItems: NavItem[] = [
@@ -51,16 +52,22 @@ export const navigationItems: NavItem[] = [
 
   // Candidate
   {
+    label: "My Applications",
+    href: "/my-applications",
+    icon: Send,
+    ability: { action: "READ", subject: "MyApplication" },
+  },
+  {
     label: "Applications",
     href: "/applications",
     icon: Send,
-    ability: { action: "VIEW", subject: "Application" },
+    ability: { action: "READ", subject: "Applications" },
   },
   {
     label: "My Resume",
     href: "/resume",
     icon: FileText,
-    ability: { action: "VIEW", subject: "Resume" },
+    ability: { action: "READ", subject: "Resume" },
   },
   {
     label: "Profile",
@@ -80,7 +87,7 @@ export const navigationItems: NavItem[] = [
     label: "Resume Bank",
     href: "/resume-bank",
     icon: FileText,
-    ability: { action: "VIEW", subject: "ResumeBank" },
+    ability: { action: "READ", subject: "ResumeBank" },
   },
 
   // Org Admin
@@ -102,13 +109,13 @@ export const navigationItems: NavItem[] = [
     label: "All Organizations",
     href: "/admin/orgs",
     icon: Building2,
-    ability: { action: "MANAGE", subject: "Organization" },
+    ability: { action: "MANAGE", subject: "Organizations" },
   },
   {
     label: "User Management",
     href: "/admin/users",
     icon: Users,
-    ability: { action: "MANAGE", subject: "User" },
+    ability: { action: "MANAGE", subject: "Users" },
   },
   {
     label: "System Settings",
@@ -121,6 +128,6 @@ export const navigationItems: NavItem[] = [
     label: "Settings",
     href: "/settings",
     icon: Settings,
-    ability: { action: "VIEW", subject: "Settings" },
+    ability: { action: "READ", subject: "Settings" },
   },
 ];
