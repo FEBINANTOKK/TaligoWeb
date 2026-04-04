@@ -28,7 +28,7 @@ export default function SignInPage() {
         return;
       }
 
-      router.push("/dashboard");
+      router.replace("/");
     } catch {
       setError("An unexpected error occurred");
     } finally {
@@ -38,7 +38,7 @@ export default function SignInPage() {
 
   return (
     <div className="flex justify-center items-center min-h-[80vh]">
-      <div className="w-full max-w-[400px] p-8 border border-border rounded-lg bg-card text-card-foreground">
+      <div className="w-full max-w-100 p-8 border border-border rounded-lg bg-card text-card-foreground">
         <h1 className="text-2xl font-bold mb-6 text-center">Sign In</h1>
 
         {error && (

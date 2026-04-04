@@ -4,6 +4,7 @@ import { useSession } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { fetchProtected } from "@/lib/api";
+import { getDashboardPathForRole, getUserRole } from "@/lib/user-role";
 
 interface ProtectedData {
   message: string;
@@ -12,14 +13,47 @@ interface ProtectedData {
 export default function DashboardPage() {
   const { data: session, isPending } = useSession();
   const router = useRouter();
+  const [roleChecked, setRoleChecked] = useState(false);
+  const [hasRole, setHasRole] = useState(false);
   const [apiData, setApiData] = useState<ProtectedData | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
   const [apiLoading, setApiLoading] = useState(false);
 
   useEffect(() => {
-    if (!isPending && !session?.user) {
-      router.replace("/sign-in");
+    if (isPending) {
+      return;
     }
+
+    if (!session?.user) {
+      router.replace("/sign-in");
+      return;
+    }
+
+    let cancelled = false;
+
+    const routeByRole = async () => {
+      const role = await getUserRole();
+      if (cancelled) {
+        return;
+      }
+
+      setRoleChecked(true);
+
+      if (!role) {
+        setHasRole(false);
+        router.push("/onboarding");
+        return;
+      }
+
+      setHasRole(true);
+      router.push(getDashboardPathForRole(role));
+    };
+
+    void routeByRole();
+
+    return () => {
+      cancelled = true;
+    };
   }, [isPending, session, router]);
 
   const callProtectedApi = async () => {
@@ -49,11 +83,15 @@ export default function DashboardPage() {
     return null;
   }
 
+  if (!roleChecked || !hasRole) {
+    return null;
+  }
+
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-[var(--foreground)]">Dashboard</h1>
+      <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
 
-      <div className="p-6 border border-[var(--border)] rounded-xl bg-[var(--card)] text-[var(--card-foreground)] shadow-sm">
+      <div className="p-6 border border-border rounded-xl bg-card text-card-foreground shadow-sm">
         <h2 className="text-lg font-semibold mb-3">User Info</h2>
         <p>
           <strong>Name:</strong> {session.user.name}
@@ -63,7 +101,7 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      <div className="p-6 border border-[var(--border)] rounded-xl bg-[var(--card)] text-[var(--card-foreground)] shadow-sm">
+      <div className="p-6 border border-border rounded-xl bg-card text-card-foreground shadow-sm">
         <h2 className="text-lg font-semibold mb-3">Protected API Call</h2>
         <button
           onClick={callProtectedApi}

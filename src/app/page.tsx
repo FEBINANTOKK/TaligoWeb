@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
+import { getDashboardPathForRole, getUserRole } from "@/lib/user-role";
 
 export default function Home() {
   const router = useRouter();
@@ -14,8 +15,27 @@ export default function Home() {
     }
 
     if (session?.user) {
-      router.replace("/dashboard");
-      return;
+      let cancelled = false;
+
+      const routeByRole = async () => {
+        const role = await getUserRole();
+        if (cancelled) {
+          return;
+        }
+
+        if (role) {
+          router.push(getDashboardPathForRole(role));
+          return;
+        }
+
+        router.push("/onboarding");
+      };
+
+      void routeByRole();
+
+      return () => {
+        cancelled = true;
+      };
     }
 
     router.replace("/sign-in");
