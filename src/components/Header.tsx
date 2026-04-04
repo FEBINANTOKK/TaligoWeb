@@ -33,7 +33,7 @@ export default function Header({ onMobileMenuToggle }: HeaderProps) {
 
   const handleLogout = async () => {
     await signOut();
-    router.push("/sign-in");
+    router.replace("/sign-in");
   };
 
   const initials = session?.user?.name

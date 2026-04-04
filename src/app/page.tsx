@@ -1,66 +1,39 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useSession } from "@/lib/auth-client";
 
 export default function Home() {
+  const router = useRouter();
+  const { data: session, isPending } = useSession();
+
+  useEffect(() => {
+    if (isPending) {
+      return;
+    }
+
+    if (session?.user) {
+      router.replace("/dashboard");
+      return;
+    }
+
+    router.replace("/sign-in");
+  }, [isPending, session, router]);
+
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>To get started, edit the page.tsx file.</h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-6">
+      <div className="absolute inset-0 opacity-70 [background:radial-gradient(circle_at_top,rgba(194,140,69,0.14),transparent_45%),radial-gradient(circle_at_bottom_right,rgba(90,125,160,0.1),transparent_45%)]" />
+
+      <div className="relative flex w-full max-w-md flex-col items-center rounded-2xl border border-border bg-card/85 p-8 text-center shadow-lg backdrop-blur-sm">
+        <div className="mb-4 h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+        <h1 className="text-xl font-semibold text-card-foreground">
+          Checking your session
+        </h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          You will be redirected automatically.
+        </p>
+      </div>
     </div>
   );
 }
