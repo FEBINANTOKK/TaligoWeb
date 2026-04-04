@@ -5,7 +5,7 @@ import { useSession, signOut } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useTheme } from "@/providers/ThemeProvider";
-import TeamSwitcher from "./dashboard/TeamSwitcher";
+import TeamSwitcher from "./TeamSwitcher";
 import { Moon, Sun } from "lucide-react";
 
 export default function Navbar() {
