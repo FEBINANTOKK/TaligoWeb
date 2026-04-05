@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { PanelLeftClose, PanelLeftOpen, Plus } from "lucide-react";
@@ -51,14 +52,14 @@ export default function Sidebar({
         className="flex-1 py-4 px-3 space-y-1 overflow-y-auto"
         aria-label="Sidebar navigation"
       >
-        {navigationItems.map((item) => {
+        {navigationItems.map((item, index) => {
           const isActive =
             pathname === item.href || pathname.startsWith(item.href + "/");
           const Icon = item.icon;
+          const itemKey = `${index}-${item.href}`;
 
           const link = (
             <Link
-              key={item.href}
               href={item.href}
               onClick={onMobileClose}
               className={`
@@ -79,15 +80,11 @@ export default function Sidebar({
           );
 
           if (!item.ability) {
-            return link;
+            return <React.Fragment key={itemKey}>{link}</React.Fragment>;
           }
 
           return (
-            <Can
-              key={item.href}
-              I={item.ability.action}
-              a={item.ability.subject}
-            >
+            <Can key={itemKey} I={item.ability.action} a={item.ability.subject}>
               {link}
             </Can>
           );

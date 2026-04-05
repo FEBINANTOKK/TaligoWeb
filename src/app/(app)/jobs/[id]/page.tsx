@@ -1,296 +1,437 @@
 "use client";
 
-import { useEffect, useState, useContext } from "react";
+import { useContext, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
-  MapPin,
-  DollarSign,
-  Briefcase,
+  Loader2,
+  AlertCircle,
   Pencil,
   Trash2,
-  Bookmark,
-  CheckCircle2,
-  AlertCircle,
-  Loader2,
+  MapPin,
+  Building2,
+  Workflow,
+  Send,
+  Users,
 } from "lucide-react";
-import { getJobById, deleteJob, type Job } from "@/lib/jobs";
-import { Can, AbilityContext } from "@/providers/AbilityProvider";
+import {
+  deleteJob,
+  getJobById,
+  updateJobStatus,
+  type Job,
+  type JobStatus,
+} from "@/lib/jobs";
+import { applyToJob } from "@/lib/applications";
+import { getUserRole, type UserRole } from "@/lib/user-role";
+import { AbilityContext } from "@/providers/AbilityProvider";
 
-const PLACEHOLDER_RESPONSIBILITIES = [
-  "Design and implement scalable systems",
-  "Collaborate with cross-functional teams",
-  "Perform code reviews and mentor juniors",
-  "Drive technical roadmap decisions",
-];
+type ToastState = {
+  type: "success" | "error";
+  message: string;
+} | null;
+
+const STATUS_OPTIONS: JobStatus[] = ["ACTIVE", "DRAFT", "CLOSED"];
+
+function getStatusClass(status?: JobStatus) {
+  if (status === "ACTIVE") {
+    return "border border-green-200 bg-green-100 text-green-700";
+  }
+  if (status === "CLOSED") {
+    return "border border-red-200 bg-red-100 text-red-700";
+  }
+  return "border border-zinc-200 bg-zinc-100 text-zinc-700";
+}
 
 export default function JobDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const ability = useContext(AbilityContext);
 
   const [job, setJob] = useState<Job | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [statusUpdating, setStatusUpdating] = useState(false);
+  const [applying, setApplying] = useState(false);
   const [applied, setApplied] = useState(false);
+  const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [toast, setToast] = useState<ToastState>(null);
 
-  const ability = useContext(AbilityContext);
+  const canUpdate =
+    ability.can("UPDATE", "Job") ||
+    ability.can("UPDATE", "OrgJob") ||
+    ability.can("MANAGE", "OrgJob");
+  const canDelete =
+    ability.can("DELETE", "Job") ||
+    ability.can("DELETE", "OrgJob") ||
+    ability.can("MANAGE", "OrgJob");
 
   useEffect(() => {
-    getJobById(id)
-      .then(setJob)
-      .catch((e: unknown) =>
-        setError(e instanceof Error ? e.message : "Failed to load job"),
-      )
-      .finally(() => setLoading(false));
+    let cancelled = false;
+
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await getJobById(id);
+        if (!cancelled) {
+          setJob(data);
+        }
+      } catch (e: unknown) {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : "Failed to load job");
+          setJob(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadRole = async () => {
+      const role = await getUserRole();
+      if (!cancelled) {
+        setUserRole(role);
+      }
+    };
+
+    void loadRole();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!toast) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => setToast(null), 2400);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
+
   async function handleDelete() {
-    if (!confirm("Are you sure you want to delete this job posting?")) return;
+    if (!job) {
+      return;
+    }
+
+    if (!confirm("Are you sure you want to delete this job?")) {
+      return;
+    }
+
     setDeleting(true);
-    setDeleteError(null);
     try {
-      await deleteJob(id);
-      router.push("/jobs");
+      await deleteJob(job._id);
+      setToast({ type: "success", message: "Job deleted" });
+      router.replace("/jobs");
     } catch (e: unknown) {
-      setDeleteError(e instanceof Error ? e.message : "Delete failed");
+      setToast({
+        type: "error",
+        message: e instanceof Error ? e.message : "Failed to delete job",
+      });
       setDeleting(false);
+    }
+  }
+
+  async function handleStatusChange(nextStatus: JobStatus) {
+    if (!job || statusUpdating || job.status === nextStatus) {
+      return;
+    }
+
+    const previousStatus = job.status;
+
+    setStatusUpdating(true);
+    setJob((prev) => (prev ? { ...prev, status: nextStatus } : prev));
+
+    try {
+      await updateJobStatus(job._id, nextStatus);
+      const fresh = await getJobById(job._id);
+      setJob(fresh);
+      setToast({ type: "success", message: "Status changed" });
+    } catch (e: unknown) {
+      setJob((prev) => (prev ? { ...prev, status: previousStatus } : prev));
+      setToast({
+        type: "error",
+        message: e instanceof Error ? e.message : "Failed to change status",
+      });
+    } finally {
+      setStatusUpdating(false);
+    }
+  }
+
+  async function handleApply() {
+    if (!job || applying || applied) {
+      return;
+    }
+
+    setApplying(true);
+
+    try {
+      await applyToJob(job._id);
+      setApplied(true);
+      setToast({ type: "success", message: "Applied successfully" });
+      router.replace("/applications");
+    } catch (e: unknown) {
+      setToast({
+        type: "error",
+        message: e instanceof Error ? e.message : "Failed to apply",
+      });
+      setApplying(false);
     }
   }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      <div className="flex min-h-64 items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   if (error || !job) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3 text-center">
-        <AlertCircle className="w-10 h-10 job-danger-text" />
+      <div className="flex min-h-64 flex-col items-center justify-center gap-3 text-center">
+        <AlertCircle className="h-10 w-10 text-destructive" />
         <p className="font-semibold text-foreground">
           {error ?? "Job not found"}
         </p>
-        <Link href="/jobs" className="text-sm text-primary hover:underline">
-          Back to listings
+        <Link
+          href="/jobs"
+          className="text-sm font-semibold text-primary hover:underline"
+        >
+          Back to Jobs
         </Link>
       </div>
     );
   }
 
-  const canManage =
-    ability.can("MANAGE", "OrgJob") || ability.can("UPDATE", "Job");
+  const skills = job.skills ?? job.tags ?? [];
+  const canApply = userRole === "candidate";
+  const canViewApplications =
+    userRole === "recruiter" ||
+    userRole === "orgadmin" ||
+    userRole === "superadmin";
 
   return (
     <div className="space-y-6">
-      {/* Back */}
+      {toast && (
+        <div
+          className={`rounded-lg border px-4 py-2 text-sm ${
+            toast.type === "success"
+              ? "border-green-200 bg-green-100 text-green-700"
+              : "border-red-200 bg-red-100 text-red-700"
+          }`}
+        >
+          {toast.message}
+        </div>
+      )}
+
       <Link
         href="/jobs"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
-        <ArrowLeft className="w-4 h-4" /> Back to listings
+        <ArrowLeft className="h-4 w-4" />
+        Back to Jobs
       </Link>
 
-      {/* Two-column layout */}
-      <div className="flex gap-6 items-start">
-        {/* ── Left ── */}
-        <div className="flex-1 min-w-0 space-y-6">
-          {/* Title block */}
-          <div className="p-6 rounded-xl border border-border bg-card shadow-sm">
-            <div className="flex items-start justify-between gap-4 mb-4">
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-xl bg-accent flex items-center justify-center shrink-0">
-                  <Briefcase className="w-6 h-6 text-accent-foreground" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold text-foreground">
-                    {job.title}
-                  </h1>
-                  <p className="text-sm text-muted-foreground mt-0.5">
-                    {job.company ?? "Organization"}
-                  </p>
-                  <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-muted-foreground">
-                    {job.location && (
-                      <span className="flex items-center gap-1">
-                        <MapPin className="w-3 h-3" /> {job.location}
-                      </span>
-                    )}
-                    <span className="flex items-center gap-1">
-                      <DollarSign className="w-3 h-3" />
-                      {job.salary ?? "Competitive"}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Status badge */}
-              {job.status && (
-                <span
-                  className={`shrink-0 text-xs font-semibold px-2.5 py-1 rounded-full ${
-                    job.status === "ACTIVE"
-                      ? "job-status-active"
-                      : job.status === "DRAFT"
-                        ? "job-status-draft"
-                        : "job-status-complete"
-                  }`}
-                >
-                  {job.status}
+      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+          <div className="space-y-2">
+            <h1 className="text-2xl font-bold text-foreground">{job.title}</h1>
+            <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+              {job.location && (
+                <span className="inline-flex items-center gap-1.5">
+                  <MapPin className="h-4 w-4" />
+                  {job.location}
+                </span>
+              )}
+              {job.jobType && (
+                <span className="inline-flex items-center gap-1.5">
+                  <Building2 className="h-4 w-4" />
+                  {job.jobType}
+                </span>
+              )}
+              {job.workMode && (
+                <span className="inline-flex items-center gap-1.5">
+                  <Workflow className="h-4 w-4" />
+                  {job.workMode}
                 </span>
               )}
             </div>
+          </div>
 
-            {/* Action buttons */}
-            <div className="flex flex-wrap gap-3">
-              <Can I="CREATE" a="Application">
-                {applied ? (
-                  <span className="job-status-active inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold">
-                    <CheckCircle2 className="w-4 h-4" /> Applied
-                  </span>
-                ) : (
-                  <button
-                    onClick={() => setApplied(true)}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity cursor-pointer"
-                  >
-                    Apply Now
-                  </button>
-                )}
-              </Can>
+          <span
+            className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${getStatusClass(job.status)}`}
+          >
+            {job.status ?? "DRAFT"}
+          </span>
+        </div>
 
-              <button className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-card text-foreground text-sm font-semibold hover:bg-accent transition-colors cursor-pointer">
-                <Bookmark className="w-4 h-4" /> Save
-              </button>
+        <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+          {job.description}
+        </p>
 
-              {canManage && (
-                <>
-                  <Link
-                    href={`/jobs/edit/${id}`}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-card text-foreground text-sm font-semibold hover:bg-accent transition-colors"
-                  >
-                    <Pencil className="w-4 h-4" /> Edit
-                  </Link>
-                  <button
-                    onClick={handleDelete}
-                    disabled={deleting}
-                    className="job-danger-button inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer disabled:opacity-50"
-                  >
-                    {deleting ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Trash2 className="w-4 h-4" />
-                    )}
-                    {deleting ? "Deleting…" : "Delete"}
-                  </button>
-                </>
+        <div className="mt-5 flex flex-wrap gap-3">
+          {canApply && (
+            <button
+              type="button"
+              onClick={handleApply}
+              disabled={applying || applied}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {applying ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
               )}
-            </div>
-
-            {deleteError && (
-              <p className="job-danger-text mt-3 text-sm">{deleteError}</p>
-            )}
-          </div>
-
-          {/* Opportunity */}
-          <div className="p-6 rounded-xl border border-border bg-card shadow-sm space-y-3">
-            <h2 className="text-base font-semibold text-foreground">
-              Opportunity
-            </h2>
-            <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
-              {job.description}
-            </p>
-          </div>
-
-          {/* Skills */}
-          {job.tags && job.tags.length > 0 && (
-            <div className="p-6 rounded-xl border border-border bg-card shadow-sm space-y-3">
-              <h2 className="text-base font-semibold text-foreground">
-                Required Skills
-              </h2>
-              <div className="flex flex-wrap gap-2">
-                {job.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="text-sm px-3 py-1 rounded-full bg-secondary text-secondary-foreground font-medium"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            </div>
+              {applied ? "Applied" : applying ? "Applying..." : "Apply"}
+            </button>
           )}
 
-          {/* Responsibilities */}
-          <div className="p-6 rounded-xl border border-border bg-card shadow-sm space-y-3">
-            <h2 className="text-base font-semibold text-foreground">
-              Responsibilities
-            </h2>
-            <ul className="space-y-2">
-              {PLACEHOLDER_RESPONSIBILITIES.map((r) => (
-                <li
-                  key={r}
-                  className="flex items-start gap-2 text-sm text-muted-foreground"
-                >
-                  <CheckCircle2 className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                  {r}
-                </li>
-              ))}
-            </ul>
+          {canViewApplications && (
+            <Link
+              href={`/jobs/${job._id}/applications`}
+              className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-accent"
+            >
+              <Users className="h-4 w-4" />
+              View Applications
+            </Link>
+          )}
+        </div>
+      </div>
+
+      {skills.length > 0 && (
+        <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+          <h2 className="mb-3 text-sm font-semibold text-foreground">Skills</h2>
+          <div className="flex flex-wrap gap-2">
+            {skills.map((skill) => (
+              <span
+                key={skill}
+                className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground"
+              >
+                {skill}
+              </span>
+            ))}
           </div>
         </div>
+      )}
 
-        {/* ── Right sidebar ── */}
-        <div className="hidden lg:flex flex-col w-72 shrink-0 gap-5">
-          {/* Job Intelligence */}
-          <div className="p-5 rounded-xl border border-border bg-card shadow-sm space-y-4">
-            <h3 className="text-sm font-semibold text-foreground">
-              Job Intelligence
-            </h3>
-            <div className="space-y-2.5 text-sm">
-              {[
-                { label: "Match Score", value: "87%" },
-                { label: "Competition", value: "Medium" },
-                { label: "Avg. Salary", value: job.salary ?? "$80k–$120k" },
-                { label: "Remote", value: "Hybrid" },
-              ].map(({ label, value }) => (
-                <div key={label} className="flex justify-between">
-                  <span className="text-muted-foreground">{label}</span>
-                  <span className="font-semibold text-foreground">{value}</span>
-                </div>
-              ))}
-            </div>
+      {canUpdate && (
+        <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+          <h2 className="mb-4 text-sm font-semibold text-foreground">
+            Status Management
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            {STATUS_OPTIONS.map((status) => (
+              <button
+                key={status}
+                type="button"
+                onClick={() => handleStatusChange(status)}
+                disabled={statusUpdating || job.status === status}
+                className={`rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${
+                  job.status === status
+                    ? getStatusClass(status)
+                    : "border border-border bg-background text-foreground hover:bg-accent"
+                } disabled:cursor-not-allowed disabled:opacity-70`}
+              >
+                {statusUpdating && job.status === status
+                  ? "Updating..."
+                  : `Set ${status}`}
+              </button>
+            ))}
           </div>
+        </div>
+      )}
 
-          {/* Apply panel */}
-          <Can I="CREATE" a="Application">
-            <div className="p-5 rounded-xl border border-border bg-card shadow-sm space-y-4">
-              <h3 className="text-sm font-semibold text-foreground">
-                Quick Apply
-              </h3>
-              <p className="text-xs text-muted-foreground">
-                Your profile resume will be included with your application.
-              </p>
-              <div className="flex items-center gap-2 p-3 rounded-lg bg-muted text-xs text-muted-foreground">
-                <Briefcase className="w-4 h-4 shrink-0" />
-                <span className="truncate">myresume.pdf</span>
-              </div>
-              {applied ? (
-                <span className="flex items-center gap-2 text-sm text-primary font-semibold">
-                  <CheckCircle2 className="w-4 h-4" /> Application Sent
-                </span>
+      {(canUpdate || canDelete) && (
+        <div className="flex flex-wrap gap-3">
+          {canUpdate && (
+            <Link
+              href={`/jobs/edit/${job._id}`}
+              className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-accent"
+            >
+              <Pencil className="h-4 w-4" />
+              Edit
+            </Link>
+          )}
+
+          {canDelete && (
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={deleting}
+              className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-red-100 px-4 py-2 text-sm font-semibold text-red-700 transition-colors hover:bg-red-200 disabled:opacity-60"
+            >
+              {deleting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <button
-                  onClick={() => setApplied(true)}
-                  className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity cursor-pointer"
-                >
-                  Apply Now
-                </button>
+                <Trash2 className="h-4 w-4" />
               )}
-            </div>
-          </Can>
+              {deleting ? "Deleting..." : "Delete"}
+            </button>
+          )}
         </div>
+      )}
+
+      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+        <h2 className="mb-3 text-sm font-semibold text-foreground">
+          Full Details
+        </h2>
+        <dl className="grid gap-3 text-sm sm:grid-cols-2">
+          <div>
+            <dt className="text-muted-foreground">Title</dt>
+            <dd className="font-medium text-foreground">{job.title}</dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground">Location</dt>
+            <dd className="font-medium text-foreground">
+              {job.location ?? "Not specified"}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground">Job Type</dt>
+            <dd className="font-medium text-foreground">
+              {job.jobType ?? "Not specified"}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground">Work Mode</dt>
+            <dd className="font-medium text-foreground">
+              {job.workMode ?? "Not specified"}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground">Status</dt>
+            <dd className="font-medium text-foreground">
+              {job.status ?? "DRAFT"}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground">Created</dt>
+            <dd className="font-medium text-foreground">
+              {job.createdAt
+                ? new Intl.DateTimeFormat("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  }).format(new Date(job.createdAt))
+                : "Unknown"}
+            </dd>
+          </div>
+        </dl>
       </div>
     </div>
   );

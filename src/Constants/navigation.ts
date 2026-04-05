@@ -29,7 +29,6 @@ import {
   Users,
   Building2,
   ShieldCheck,
-  UserCircle,
   type LucideIcon,
   FilePlus,
 } from "lucide-react";
@@ -54,7 +53,7 @@ export const navigationItems: NavItem[] = [
   // Candidate
   {
     label: "My Applications",
-    href: "/my-applications",
+    href: "/applications",
     icon: Send,
     ability: { action: "READ", subject: "MyApplication" },
   },
@@ -79,10 +78,16 @@ export const navigationItems: NavItem[] = [
 
   // Recruiter / Org Admin
   {
-    label: "Job Management",
+    label: "Posted Jobs",
     href: "/jobs",
     icon: Briefcase,
     ability: { action: "MANAGE", subject: "OrgJob" },
+  },
+  {
+    label: "Posted Jobs",
+    href: "/jobs",
+    icon: Briefcase,
+    ability: { action: "MANAGE", subject: "Job" },
   },
   {
     label: "Resume Bank",
