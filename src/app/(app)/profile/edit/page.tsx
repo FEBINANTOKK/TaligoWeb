@@ -7,20 +7,24 @@ import {
   AlertCircle,
   Plus,
   Trash2,
-  X,
   ChevronDown,
   ChevronUp,
+  BadgeCheck,
 } from "lucide-react";
 import {
   getProfile,
   createProfile,
   updateProfile,
+  getEmployerProfile,
+  createEmployerProfile,
+  updateEmployerProfile,
   type CandidateProfile,
+  type EmployerProfile,
   type ProfileExperience,
   type ProfileEducation,
   type ProfileLinks,
 } from "@/lib/profile";
-import { getUserRole } from "@/lib/user-role";
+import { getUserRole, type UserRole } from "@/lib/user-role";
 
 interface FormData {
   name: string;
@@ -37,6 +41,21 @@ interface FormData {
   workMode: string[];
 }
 
+interface EmployerFormData {
+  name: string;
+  phone: string;
+  location: string;
+  jobTitle: string;
+  organizationId: string;
+  organizationName: string;
+  department: string;
+  linkedinUrl: string;
+  githubUrl: string;
+  websiteUrl: string;
+  skillsInput: string;
+  isVerified: boolean;
+}
+
 const JOB_TYPES = [
   "Full-time",
   "Part-time",
@@ -48,7 +67,10 @@ const WORK_MODES = ["Remote", "On-site", "Hybrid"];
 
 export default function EditProfilePage() {
   const router = useRouter();
+  const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [profile, setProfile] = useState<CandidateProfile | null>(null);
+  const [employerProfile, setEmployerProfile] =
+    useState<EmployerProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,6 +81,9 @@ export default function EditProfilePage() {
     links: false,
     preferences: false,
   });
+  const [employerFieldErrors, setEmployerFieldErrors] = useState<
+    Partial<Record<keyof EmployerFormData, string>>
+  >({});
 
   const [formData, setFormData] = useState<FormData>({
     name: "",
@@ -75,37 +100,77 @@ export default function EditProfilePage() {
     workMode: [],
   });
 
+  const [employerFormData, setEmployerFormData] = useState<EmployerFormData>({
+    name: "",
+    phone: "",
+    location: "",
+    jobTitle: "",
+    organizationId: "",
+    organizationName: "",
+    department: "",
+    linkedinUrl: "",
+    githubUrl: "",
+    websiteUrl: "",
+    skillsInput: "",
+    isVerified: false,
+  });
+
+  const isRecruiterRole = userRole === "recruiter" || userRole === "orgadmin";
+
   // Load profile on mount
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        // Check role authorization
         const role = await getUserRole();
-        if (role !== "candidate") {
-          setError("Unauthorized: Only candidates can access this page");
+        if (!role || !["candidate", "recruiter", "orgadmin"].includes(role)) {
+          setError(
+            "Unauthorized: Only candidates, recruiters, and org admins can access this page",
+          );
           setAuthorized(false);
           return;
         }
 
+        setUserRole(role);
         setAuthorized(true);
 
-        // Fetch existing profile if available
-        const profileData = await getProfile();
-        if (profileData) {
-          setProfile(profileData);
-          setFormData({
-            name: profileData.name ?? "",
-            location: profileData.location ?? "",
-            phone: profileData.phone ?? "",
-            headline: profileData.headline ?? "",
-            summary: profileData.summary ?? "",
-            experienceYears: profileData.experienceYears?.toString() ?? "",
-            skills: (profileData.skills ?? []).join(", "),
-            experience: profileData.experience ?? [],
-            education: profileData.education ?? [],
-            links: profileData.links ?? {},
-            jobType: profileData.jobType ?? [],
-            workMode: profileData.workMode ?? [],
+        if (role === "candidate") {
+          const profileData = await getProfile();
+          if (profileData) {
+            setProfile(profileData);
+            setFormData({
+              name: profileData.name ?? "",
+              location: profileData.location ?? "",
+              phone: profileData.phone ?? "",
+              headline: profileData.headline ?? "",
+              summary: profileData.summary ?? "",
+              experienceYears: profileData.experienceYears?.toString() ?? "",
+              skills: (profileData.skills ?? []).join(", "),
+              experience: profileData.experience ?? [],
+              education: profileData.education ?? [],
+              links: profileData.links ?? {},
+              jobType: profileData.jobType ?? [],
+              workMode: profileData.workMode ?? [],
+            });
+          }
+          return;
+        }
+
+        const employerData = await getEmployerProfile();
+        if (employerData) {
+          setEmployerProfile(employerData);
+          setEmployerFormData({
+            name: employerData.name ?? "",
+            phone: employerData.phone ?? "",
+            location: employerData.location ?? "",
+            jobTitle: employerData.jobTitle ?? "",
+            organizationId: employerData.organizationId ?? "",
+            organizationName: employerData.organizationName ?? "",
+            department: employerData.department ?? "",
+            linkedinUrl: employerData.linkedinUrl ?? "",
+            githubUrl: employerData.githubUrl ?? "",
+            websiteUrl: employerData.websiteUrl ?? "",
+            skillsInput: (employerData.skills ?? []).join(", "),
+            isVerified: Boolean(employerData.isVerified),
           });
         }
       } catch (err) {
@@ -232,6 +297,71 @@ export default function EditProfilePage() {
     setError(null);
 
     try {
+      if (isRecruiterRole) {
+        const fieldErrors: Partial<Record<keyof EmployerFormData, string>> = {};
+
+        if (!employerFormData.name.trim()) {
+          fieldErrors.name = "Name is required";
+        }
+
+        const validateOptionalUrl = (value: string): boolean => {
+          if (!value.trim()) {
+            return true;
+          }
+
+          try {
+            const parsed = new URL(value);
+            return parsed.protocol === "http:" || parsed.protocol === "https:";
+          } catch {
+            return false;
+          }
+        };
+
+        if (!validateOptionalUrl(employerFormData.linkedinUrl)) {
+          fieldErrors.linkedinUrl = "Enter a valid URL (http/https)";
+        }
+        if (!validateOptionalUrl(employerFormData.githubUrl)) {
+          fieldErrors.githubUrl = "Enter a valid URL (http/https)";
+        }
+        if (!validateOptionalUrl(employerFormData.websiteUrl)) {
+          fieldErrors.websiteUrl = "Enter a valid URL (http/https)";
+        }
+
+        setEmployerFieldErrors(fieldErrors);
+        if (Object.keys(fieldErrors).length > 0) {
+          throw new Error("Please fix form errors and try again.");
+        }
+
+        const submitData: Partial<EmployerProfile> = {
+          role: userRole === "orgadmin" ? "ORG_ADMIN" : "RECRUITER",
+          name: employerFormData.name.trim(),
+          phone: employerFormData.phone.trim() || undefined,
+          location: employerFormData.location.trim() || undefined,
+          jobTitle: employerFormData.jobTitle.trim() || undefined,
+          organizationId: employerFormData.organizationId.trim() || undefined,
+          organizationName:
+            employerFormData.organizationName.trim() || undefined,
+          department: employerFormData.department.trim() || undefined,
+          linkedinUrl: employerFormData.linkedinUrl.trim() || undefined,
+          githubUrl: employerFormData.githubUrl.trim() || undefined,
+          websiteUrl: employerFormData.websiteUrl.trim() || undefined,
+          skills: employerFormData.skillsInput
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean),
+          isVerified: employerFormData.isVerified,
+        };
+
+        if (employerProfile) {
+          await updateEmployerProfile(submitData);
+        } else {
+          await createEmployerProfile(submitData);
+        }
+
+        router.push("/profile");
+        return;
+      }
+
       if (!formData.name.trim()) {
         throw new Error("Name is required");
       }
@@ -304,12 +434,379 @@ export default function EditProfilePage() {
     );
   }
 
+  if (isRecruiterRole) {
+    const parsedSkills = employerFormData.skillsInput
+      .split(",")
+      .map((skill) => skill.trim())
+      .filter(Boolean);
+
+    return (
+      <form onSubmit={handleSubmit} className="space-y-6 pb-12">
+        {error && (
+          <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-4 text-destructive">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+              <div>
+                <p className="font-semibold">Error</p>
+                <p className="mt-1 text-sm">{error}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold text-foreground">
+            {employerProfile ? "Edit" : "Create"} Recruiter Profile
+          </h1>
+        </div>
+
+        <div className="rounded-xl border border-border bg-card p-6">
+          <h2 className="text-lg font-semibold text-foreground">
+            Basic Information
+          </h2>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <div>
+              <label
+                htmlFor="employer-name"
+                className="block text-sm font-medium text-foreground"
+              >
+                Full Name <span className="text-destructive">*</span>
+              </label>
+              <input
+                id="employer-name"
+                type="text"
+                value={employerFormData.name}
+                onChange={(e) => {
+                  setEmployerFieldErrors((prev) => ({
+                    ...prev,
+                    name: undefined,
+                  }));
+                  setEmployerFormData((prev) => ({
+                    ...prev,
+                    name: e.target.value,
+                  }));
+                }}
+                placeholder="Alex Recruiter"
+                className="mt-2 w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              {employerFieldErrors.name && (
+                <p className="mt-1 text-xs text-destructive">
+                  {employerFieldErrors.name}
+                </p>
+              )}
+            </div>
+            <div>
+              <label
+                htmlFor="employer-phone"
+                className="block text-sm font-medium text-foreground"
+              >
+                Phone
+              </label>
+              <input
+                id="employer-phone"
+                type="tel"
+                value={employerFormData.phone}
+                onChange={(e) =>
+                  setEmployerFormData((prev) => ({
+                    ...prev,
+                    phone: e.target.value,
+                  }))
+                }
+                placeholder="+1 (555) 000-1234"
+                className="mt-2 w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="employer-location"
+                className="block text-sm font-medium text-foreground"
+              >
+                Location
+              </label>
+              <input
+                id="employer-location"
+                type="text"
+                value={employerFormData.location}
+                onChange={(e) =>
+                  setEmployerFormData((prev) => ({
+                    ...prev,
+                    location: e.target.value,
+                  }))
+                }
+                placeholder="Bengaluru, India"
+                className="mt-2 w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="employer-job-title"
+                className="block text-sm font-medium text-foreground"
+              >
+                Job Title
+              </label>
+              <input
+                id="employer-job-title"
+                type="text"
+                value={employerFormData.jobTitle}
+                onChange={(e) =>
+                  setEmployerFormData((prev) => ({
+                    ...prev,
+                    jobTitle: e.target.value,
+                  }))
+                }
+                placeholder="Senior Recruiter"
+                className="mt-2 w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-border bg-card p-6">
+          <h2 className="text-lg font-semibold text-foreground">
+            Organization
+          </h2>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <div>
+              <label
+                htmlFor="organization-id"
+                className="block text-sm font-medium text-foreground"
+              >
+                Organization ID
+              </label>
+              <input
+                id="organization-id"
+                type="text"
+                value={employerFormData.organizationId}
+                onChange={(e) =>
+                  setEmployerFormData((prev) => ({
+                    ...prev,
+                    organizationId: e.target.value,
+                  }))
+                }
+                className="mt-2 w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="organization-name"
+                className="block text-sm font-medium text-foreground"
+              >
+                Organization Name
+              </label>
+              <input
+                id="organization-name"
+                type="text"
+                value={employerFormData.organizationName}
+                onChange={(e) =>
+                  setEmployerFormData((prev) => ({
+                    ...prev,
+                    organizationName: e.target.value,
+                  }))
+                }
+                className="mt-2 w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label
+                htmlFor="department"
+                className="block text-sm font-medium text-foreground"
+              >
+                Department
+              </label>
+              <input
+                id="department"
+                type="text"
+                value={employerFormData.department}
+                onChange={(e) =>
+                  setEmployerFormData((prev) => ({
+                    ...prev,
+                    department: e.target.value,
+                  }))
+                }
+                className="mt-2 w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-border bg-card p-6">
+          <h2 className="text-lg font-semibold text-foreground">
+            Links & Skills
+          </h2>
+          <div className="mt-4 grid gap-4">
+            <div>
+              <label
+                htmlFor="linkedin-url"
+                className="block text-sm font-medium text-foreground"
+              >
+                LinkedIn URL
+              </label>
+              <input
+                id="linkedin-url"
+                type="url"
+                value={employerFormData.linkedinUrl}
+                onChange={(e) => {
+                  setEmployerFieldErrors((prev) => ({
+                    ...prev,
+                    linkedinUrl: undefined,
+                  }));
+                  setEmployerFormData((prev) => ({
+                    ...prev,
+                    linkedinUrl: e.target.value,
+                  }));
+                }}
+                placeholder="https://linkedin.com/in/yourname"
+                className="mt-2 w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              {employerFieldErrors.linkedinUrl && (
+                <p className="mt-1 text-xs text-destructive">
+                  {employerFieldErrors.linkedinUrl}
+                </p>
+              )}
+            </div>
+            <div>
+              <label
+                htmlFor="github-url"
+                className="block text-sm font-medium text-foreground"
+              >
+                GitHub URL
+              </label>
+              <input
+                id="github-url"
+                type="url"
+                value={employerFormData.githubUrl}
+                onChange={(e) => {
+                  setEmployerFieldErrors((prev) => ({
+                    ...prev,
+                    githubUrl: undefined,
+                  }));
+                  setEmployerFormData((prev) => ({
+                    ...prev,
+                    githubUrl: e.target.value,
+                  }));
+                }}
+                placeholder="https://github.com/yourname"
+                className="mt-2 w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              {employerFieldErrors.githubUrl && (
+                <p className="mt-1 text-xs text-destructive">
+                  {employerFieldErrors.githubUrl}
+                </p>
+              )}
+            </div>
+            <div>
+              <label
+                htmlFor="website-url"
+                className="block text-sm font-medium text-foreground"
+              >
+                Website URL
+              </label>
+              <input
+                id="website-url"
+                type="url"
+                value={employerFormData.websiteUrl}
+                onChange={(e) => {
+                  setEmployerFieldErrors((prev) => ({
+                    ...prev,
+                    websiteUrl: undefined,
+                  }));
+                  setEmployerFormData((prev) => ({
+                    ...prev,
+                    websiteUrl: e.target.value,
+                  }));
+                }}
+                placeholder="https://company.com"
+                className="mt-2 w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              {employerFieldErrors.websiteUrl && (
+                <p className="mt-1 text-xs text-destructive">
+                  {employerFieldErrors.websiteUrl}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label
+                htmlFor="employer-skills"
+                className="block text-sm font-medium text-foreground"
+              >
+                Skills (comma separated)
+              </label>
+              <input
+                id="employer-skills"
+                type="text"
+                value={employerFormData.skillsInput}
+                onChange={(e) =>
+                  setEmployerFormData((prev) => ({
+                    ...prev,
+                    skillsInput: e.target.value,
+                  }))
+                }
+                placeholder="sourcing, interviewing, stakeholder management"
+                className="mt-2 w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              {parsedSkills.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {parsedSkills.map((skill) => (
+                    <span
+                      key={skill}
+                      className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
+                    >
+                      {skill}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-border bg-card p-6">
+          <label className="flex items-center gap-3 text-sm font-medium text-foreground">
+            <input
+              type="checkbox"
+              checked={employerFormData.isVerified}
+              onChange={(e) =>
+                setEmployerFormData((prev) => ({
+                  ...prev,
+                  isVerified: e.target.checked,
+                }))
+              }
+              className="h-4 w-4 rounded border-border"
+            />
+            <BadgeCheck className="h-4 w-4" />
+            Verified profile
+          </label>
+        </div>
+
+        <div className="flex gap-3">
+          <button
+            type="submit"
+            disabled={submitting}
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+            {submitting ? "Saving..." : "Save Profile"}
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push("/profile")}
+            className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-6 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-accent"
+            disabled={submitting}
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
+    );
+  }
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6 pb-12">
       {error && (
         <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-4 text-destructive">
           <div className="flex items-start gap-3">
-            <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0" />
+            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
             <div>
               <p className="font-semibold">Error</p>
               <p className="mt-1 text-sm">{error}</p>

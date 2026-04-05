@@ -61,7 +61,27 @@ export interface CandidateProfile {
   updatedAt: string;
 }
 
-type JsonRecord = Record<string, unknown>;
+export type EmployerRole = "RECRUITER" | "ORG_ADMIN";
+
+export interface EmployerProfile {
+  _id: string;
+  userId: string;
+  role: EmployerRole;
+  name: string;
+  phone?: string;
+  location?: string;
+  jobTitle?: string;
+  organizationId?: string;
+  organizationName?: string;
+  department?: string;
+  linkedinUrl?: string;
+  githubUrl?: string;
+  websiteUrl?: string;
+  skills?: string[];
+  isVerified?: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
 
 async function parseErrorResponse(res: Response): Promise<string> {
   const fallback = `API error: ${res.status} ${res.statusText}`;
@@ -140,7 +160,11 @@ export async function createProfile(
   }
 
   const responseData = (await res.json()) as { data?: CandidateProfile };
-  return responseData.data ?? null;
+  if (!responseData.data) {
+    throw new Error("Invalid response from server");
+  }
+
+  return responseData.data;
 }
 
 /**
@@ -168,5 +192,101 @@ export async function updateProfile(
   }
 
   const responseData = (await res.json()) as { data?: CandidateProfile };
-  return responseData.data ?? null;
+  if (!responseData.data) {
+    throw new Error("Invalid response from server");
+  }
+
+  return responseData.data;
+}
+
+/**
+ * Fetch employer profile for recruiter/orgadmin
+ */
+export async function getEmployerProfile(): Promise<EmployerProfile | null> {
+  const res = await fetch(`${API_BASE}/api/employer-profile`, {
+    method: "GET",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!res.ok) {
+    if (res.status === 404) {
+      return null;
+    }
+    throw new Error(await parseErrorResponse(res));
+  }
+
+  const contentType = res.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) {
+    return null;
+  }
+
+  const data = (await res.json()) as { data?: EmployerProfile };
+  return data.data ?? null;
+}
+
+/**
+ * Create employer profile for recruiter/orgadmin
+ */
+export async function createEmployerProfile(
+  data: Partial<EmployerProfile>,
+): Promise<EmployerProfile> {
+  const res = await fetch(`${API_BASE}/api/employer-profile`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!res.ok) {
+    throw new Error(await parseErrorResponse(res));
+  }
+
+  const contentType = res.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) {
+    throw new Error("Invalid response from server");
+  }
+
+  const responseData = (await res.json()) as { data?: EmployerProfile };
+  if (!responseData.data) {
+    throw new Error("Invalid response from server");
+  }
+
+  return responseData.data;
+}
+
+/**
+ * Update employer profile for recruiter/orgadmin
+ */
+export async function updateEmployerProfile(
+  data: Partial<EmployerProfile>,
+): Promise<EmployerProfile> {
+  const res = await fetch(`${API_BASE}/api/employer-profile`, {
+    method: "PUT",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!res.ok) {
+    throw new Error(await parseErrorResponse(res));
+  }
+
+  const contentType = res.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) {
+    throw new Error("Invalid response from server");
+  }
+
+  const responseData = (await res.json()) as { data?: EmployerProfile };
+  if (!responseData.data) {
+    throw new Error("Invalid response from server");
+  }
+
+  return responseData.data;
 }

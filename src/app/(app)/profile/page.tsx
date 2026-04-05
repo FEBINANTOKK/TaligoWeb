@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   Loader2,
   AlertCircle,
@@ -18,13 +17,23 @@ import {
   Plus,
   Code2,
   User,
+  Building2,
+  BadgeCheck,
 } from "lucide-react";
-import { getProfile, type CandidateProfile } from "@/lib/profile";
-import { getUserRole } from "@/lib/user-role";
+import {
+  getProfile,
+  getEmployerProfile,
+  type CandidateProfile,
+  type EmployerProfile,
+} from "@/lib/profile";
+import { getUserRole, type UserRole } from "@/lib/user-role";
 
 export default function ProfilePage() {
-  const router = useRouter();
-  const [profile, setProfile] = useState<CandidateProfile | null>(null);
+  const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [candidateProfile, setCandidateProfile] =
+    useState<CandidateProfile | null>(null);
+  const [employerProfile, setEmployerProfile] =
+    useState<EmployerProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [authorized, setAuthorized] = useState(false);
@@ -32,19 +41,26 @@ export default function ProfilePage() {
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        // Check role authorization
         const role = await getUserRole();
-        if (role !== "candidate") {
-          setError("Unauthorized: Only candidates can access this page");
+        if (!role || !["candidate", "recruiter", "orgadmin"].includes(role)) {
+          setError(
+            "Unauthorized: Only candidates, recruiters, and org admins can access this page",
+          );
           setAuthorized(false);
           return;
         }
 
+        setUserRole(role);
         setAuthorized(true);
 
-        // Fetch profile
-        const profileData = await getProfile();
-        setProfile(profileData);
+        if (role === "candidate") {
+          const profileData = await getProfile();
+          setCandidateProfile(profileData);
+          return;
+        }
+
+        const recruiterProfile = await getEmployerProfile();
+        setEmployerProfile(recruiterProfile);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load profile");
       } finally {
@@ -73,7 +89,7 @@ export default function ProfilePage() {
           <AlertCircle className="mx-auto mb-3 h-8 w-8 text-destructive" />
           <p className="font-semibold text-destructive">Unauthorized</p>
           <p className="mt-1 text-sm text-destructive/80">
-            Only candidates can access this page.
+            You do not have access to this page.
           </p>
         </div>
       </div>
@@ -84,7 +100,7 @@ export default function ProfilePage() {
     return (
       <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-4 text-destructive">
         <div className="flex items-start gap-3">
-          <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0" />
+          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
           <div>
             <p className="font-semibold">Error loading profile</p>
             <p className="mt-1 text-sm">{error}</p>
@@ -94,7 +110,7 @@ export default function ProfilePage() {
     );
   }
 
-  if (!profile) {
+  if (userRole === "candidate" && !candidateProfile) {
     return (
       <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card p-12 text-center">
         <Award className="mb-4 h-12 w-12 text-muted-foreground" />
@@ -113,6 +129,188 @@ export default function ProfilePage() {
         </Link>
       </div>
     );
+  }
+
+  if (
+    (userRole === "recruiter" || userRole === "orgadmin") &&
+    !employerProfile
+  ) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card p-12 text-center">
+        <Building2 className="mb-4 h-12 w-12 text-muted-foreground" />
+        <h2 className="text-xl font-semibold text-foreground">
+          No recruiter profile yet
+        </h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Create your recruiter profile to manage your hiring presence.
+        </p>
+        <Link
+          href="/profile/edit"
+          className="mt-4 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+        >
+          <Plus className="h-4 w-4" />
+          Create Recruiter Profile
+        </Link>
+      </div>
+    );
+  }
+
+  if (
+    (userRole === "recruiter" || userRole === "orgadmin") &&
+    employerProfile
+  ) {
+    return (
+      <div className="space-y-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">
+              {employerProfile.name}
+            </h1>
+            <p className="mt-1 text-base text-muted-foreground">
+              {employerProfile.jobTitle || "Recruiter"}
+            </p>
+            <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+              <BadgeCheck
+                className={`h-4 w-4 ${
+                  employerProfile.isVerified
+                    ? "text-emerald-500"
+                    : "text-muted-foreground"
+                }`}
+              />
+              {employerProfile.isVerified ? "Verified profile" : "Not verified"}
+            </div>
+          </div>
+          <Link
+            href="/profile/edit"
+            className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-accent"
+          >
+            <Edit2 className="h-4 w-4" />
+            Edit Profile
+          </Link>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {employerProfile.phone && (
+            <div className="rounded-xl border border-border bg-card p-4">
+              <p className="text-sm text-muted-foreground">Phone</p>
+              <a
+                href={`tel:${employerProfile.phone}`}
+                className="mt-1 block font-medium text-primary hover:underline"
+              >
+                {employerProfile.phone}
+              </a>
+            </div>
+          )}
+          {employerProfile.location && (
+            <div className="rounded-xl border border-border bg-card p-4">
+              <p className="text-sm text-muted-foreground">Location</p>
+              <p className="mt-1 font-medium text-foreground">
+                {employerProfile.location}
+              </p>
+            </div>
+          )}
+          {employerProfile.department && (
+            <div className="rounded-xl border border-border bg-card p-4">
+              <p className="text-sm text-muted-foreground">Department</p>
+              <p className="mt-1 font-medium text-foreground">
+                {employerProfile.department}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {(employerProfile.organizationName ||
+          employerProfile.organizationId) && (
+          <div className="rounded-xl border border-border bg-card p-6">
+            <h2 className="text-lg font-semibold text-foreground">
+              Organization
+            </h2>
+            <div className="mt-3 space-y-2 text-sm">
+              {employerProfile.organizationName && (
+                <p className="text-foreground">
+                  <span className="text-muted-foreground">Name:</span>{" "}
+                  {employerProfile.organizationName}
+                </p>
+              )}
+              {employerProfile.organizationId && (
+                <p className="text-foreground">
+                  <span className="text-muted-foreground">ID:</span>{" "}
+                  {employerProfile.organizationId}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {employerProfile.skills && employerProfile.skills.length > 0 && (
+          <div className="rounded-xl border border-border bg-card p-6">
+            <h2 className="text-lg font-semibold text-foreground">Skills</h2>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {employerProfile.skills.map((skill) => (
+                <span
+                  key={skill}
+                  className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary"
+                >
+                  {skill}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {(employerProfile.linkedinUrl ||
+          employerProfile.githubUrl ||
+          employerProfile.websiteUrl) && (
+          <div className="rounded-xl border border-border bg-card p-6">
+            <h2 className="text-lg font-semibold text-foreground">Links</h2>
+            <div className="mt-4 flex flex-wrap gap-3">
+              {employerProfile.linkedinUrl && (
+                <a
+                  href={employerProfile.linkedinUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+                >
+                  <User className="h-4 w-4" />
+                  LinkedIn
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              )}
+              {employerProfile.githubUrl && (
+                <a
+                  href={employerProfile.githubUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+                >
+                  <Code2 className="h-4 w-4" />
+                  GitHub
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              )}
+              {employerProfile.websiteUrl && (
+                <a
+                  href={employerProfile.websiteUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+                >
+                  <Globe className="h-4 w-4" />
+                  Website
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const profile = candidateProfile;
+
+  if (!profile) {
+    return null;
   }
 
   return (
