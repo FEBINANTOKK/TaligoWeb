@@ -49,6 +49,12 @@ export const navigationItems: NavItem[] = [
     href: "/dashboard",
     icon: LayoutDashboard,
   },
+  {
+    label: "Profile",
+    href: "/profile",
+    icon: Users,
+    ability: { action: "READ", subject: "Profile" },
+  },
 
   // Candidate
   {
