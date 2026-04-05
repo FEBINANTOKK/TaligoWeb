@@ -192,3 +192,41 @@
     @apply bg-background text-foreground min-h-full flex flex-col antialiased;
   }
 }
+
+@layer components {
+  .job-highlight-panel {
+    @apply bg-linear-to-br from-primary to-chart-5 text-primary-foreground shadow-md;
+  }
+
+  .job-feature-badge {
+    @apply border border-border/70 bg-secondary text-secondary-foreground;
+  }
+
+  .job-status-active {
+    @apply border border-primary/15 bg-primary/10 text-primary;
+  }
+
+  .job-status-draft {
+    @apply border border-border bg-secondary text-secondary-foreground;
+  }
+
+  .job-status-complete {
+    @apply border border-border bg-muted text-muted-foreground;
+  }
+
+  .job-feedback-error {
+    @apply border border-destructive/20 bg-destructive/10 text-destructive;
+  }
+
+  .job-danger-button {
+    @apply border border-destructive/20 text-destructive hover:bg-destructive/10;
+  }
+
+  .job-danger-text {
+    @apply text-destructive;
+  }
+
+  .job-required-mark {
+    @apply text-destructive;
+  }
+}
