@@ -31,6 +31,7 @@ import {
   ShieldCheck,
   UserCircle,
   type LucideIcon,
+  FilePlus,
 } from "lucide-react";
 import type { Actions, Subjects } from "@/providers/AbilityProvider";
 
@@ -64,16 +65,16 @@ export const navigationItems: NavItem[] = [
     ability: { action: "READ", subject: "Applications" },
   },
   {
+    label: "Applay for a job",
+    href: "/applay-job",
+    icon: FilePlus,
+    ability: { action: "CREATE", subject: "Application" },
+  },
+  {
     label: "My Resume",
     href: "/resume",
     icon: FileText,
-    ability: { action: "READ", subject: "Resume" },
-  },
-  {
-    label: "Profile",
-    href: "/profile",
-    icon: UserCircle,
-    ability: { action: "UPDATE", subject: "Profile" },
+    ability: { action: "READ", subject: "MyResume" },
   },
 
   // Recruiter / Org Admin
@@ -81,7 +82,7 @@ export const navigationItems: NavItem[] = [
     label: "Job Management",
     href: "/jobs",
     icon: Briefcase,
-    ability: { action: "MANAGE", subject: "Job" },
+    ability: { action: "MANAGE", subject: "OrgJob" },
   },
   {
     label: "Resume Bank",
@@ -95,7 +96,7 @@ export const navigationItems: NavItem[] = [
     label: "Team Members",
     href: "/team",
     icon: Users,
-    ability: { action: "MANAGE", subject: "User" },
+    ability: { action: "READ", subject: "Employee" },
   },
   {
     label: "Organization",

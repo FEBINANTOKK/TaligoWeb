@@ -95,21 +95,23 @@ export default function Sidebar({
       </nav>
 
       {/* Create New Job button */}
-      <div className="p-3 border-t border-[var(--sidebar-border)]">
-        <Link
-          href="/jobs/new"
-          onClick={onMobileClose}
-          className={`
-            flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold no-underline
-            bg-[var(--primary)] text-[var(--primary-foreground)]
-            hover:opacity-90 transition-opacity
-            ${collapsed ? "" : "w-full"}
-          `}
-        >
-          <Plus className="w-5 h-5 shrink-0" />
-          {!collapsed && <span>Create New Job</span>}
-        </Link>
-      </div>
+      <Can I="MANAGE" a="OrgJob">
+        <div className="p-3 border-t border-[var(--sidebar-border)]">
+          <Link
+            href="/jobs/new"
+            onClick={onMobileClose}
+            className={`
+              flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold no-underline
+              bg-[var(--primary)] text-[var(--primary-foreground)]
+              hover:opacity-90 transition-opacity
+              ${collapsed ? "" : "w-full"}
+            `}
+          >
+            <Plus className="w-5 h-5 shrink-0" />
+            {!collapsed && <span>Create New Job</span>}
+          </Link>
+        </div>
+      </Can>
     </div>
   );
 

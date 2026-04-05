@@ -1,9 +1,14 @@
 import { API_BASE } from "@/lib/api";
 
-export type UserRole = "candidate" | "recruiter" | "orgadmin";
+export type UserRole = "candidate" | "recruiter" | "orgadmin" | "superadmin";
 
 function isUserRole(value: unknown): value is UserRole {
-  return value === "candidate" || value === "recruiter" || value == "orgadmin";
+  return (
+    value === "candidate" ||
+    value === "recruiter" ||
+    value === "superadmin" ||
+    value == "orgadmin"
+  );
 }
 
 export async function getUserRole(): Promise<UserRole | null> {
@@ -28,5 +33,15 @@ export async function getUserRole(): Promise<UserRole | null> {
 }
 
 export function getDashboardPathForRole(role: UserRole): string {
-  return role === "candidate" ? "/dashboard/candidate" : "/dashboard/recruiter";
+  switch (role) {
+    case "candidate":
+      return "/dashboard/candidate";
+    case "superadmin":
+      return "/dashboard/superadmin";
+    case "recruiter":
+    case "orgadmin":
+      return "/dashboard/recruiter";
+    default:
+      return "/dashboard";
+  }
 }

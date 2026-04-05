@@ -12,10 +12,13 @@ export type Subjects =
   | "Resume"
   | "ResumeBank"
   | "Job"
+  | "MyResume"
+  | "Application"
   | "Applications"
   | "Organization"
   | "Organizations"
   | "Users"
+  | "OrgJob"
   | "Employee"
   | "Approval"
   | "Settings"
@@ -40,48 +43,60 @@ function defineAbilityFor(role: string | undefined): AppAbility {
 
   switch (role?.toUpperCase()) {
     case "CANDIDATE":
+      can("READ", "MyApplication");
+      can("READ", "MyResume");
+
+      ////
       can("READ", "Profile");
       can("UPDATE", "Profile");
-      can("READ", "Resume");
       can("READ", "Job");
-      can("CREATE", "Applications");
-      can("READ", "MyApplication");
-      can("DELETE", "Applications");
+      can("CREATE", "Application");
+      can("DELETE", "MyApplication");
       break;
 
     case "RECRUITER":
+      can("READ", "Employee");
+      can("READ", "Applications");
+      can("MANAGE", "OrgJob");
+      can("READ", "ResumeBank");
+      can("READ", "Employee");
+
+      /////////////
+
       can("CREATE", "Job");
       can("READ", "Job");
       can("UPDATE", "Job");
-      can("READ", "Applications");
       can("UPDATE", "Applications");
-      can("READ", "ResumeBank");
-      can("READ", "Employee");
-      can("MANAGE", "Job");
       break;
 
     case "ORGADMIN":
-      can("MANAGE", "Users");
-      can("MANAGE", "Employee");
-      can("MANAGE", "Approval");
-      can("MANAGE", "Job");
-      //   can("READ", "Applications");
-      //   can("MANAGE", "Applications");
-      can("MANAGE", "AppSettings");
+      can("READ", "Applications");
+      can("MANAGE", "OrgJob");
       can("MANAGE", "Organization");
       can("READ", "ResumeBank");
+      can("READ", "Employee");
+
+      //////////////
+      // can("MANAGE", "Users");
+      can("MANAGE", "Employee");
+      can("MANAGE", "Approval");
+      can("UPDATE", "Applications");
+
       break;
 
     case "SUPERADMIN":
+      can("MANAGE", "Organizations");
+      can("MANAGE", "Job"); //All jobs in platform
+      ///////
       can("MANAGE", "Users");
       can("MANAGE", "Employee");
       can("MANAGE", "Approval");
-      can("MANAGE", "Job");
+
       can("MANAGE", "Applications");
-      can("MANAGE", "Organization");
       can("MANAGE", "AppSettings");
-      can("READ", "ResumeBank");
-      can("READ", "Resume");
+      // can("READ", "ResumeBank");
+      can("MANAGE", "Resume");
+
       break;
 
     default:
