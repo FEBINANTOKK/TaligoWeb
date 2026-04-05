@@ -63,9 +63,9 @@ function defineAbilityFor(role: string | undefined): AppAbility {
 
       /////////////
 
-      can("CREATE", "Job");
+      can("CREATE", "OrgJob");
       can("READ", "Job");
-      can("UPDATE", "Job");
+      can("UPDATE", "OrgJob");
       can("UPDATE", "Applications");
       break;
 

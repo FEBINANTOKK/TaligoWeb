@@ -66,7 +66,7 @@ export const navigationItems: NavItem[] = [
   },
   {
     label: "Applay for a job",
-    href: "/applay-job",
+    href: "/jobs",
     icon: FilePlus,
     ability: { action: "CREATE", subject: "Application" },
   },
